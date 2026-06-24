@@ -1,0 +1,30 @@
+name: SherlockCode Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install SherlockCode
+        run: pip install sherlockcode
+
+      - name: Run SherlockCode Review
+        run: sherlock review --output github
+        env:
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
