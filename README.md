@@ -167,3 +167,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 Made with ❤️ for developers who care about code quality.
+# Test v3
