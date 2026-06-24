@@ -1,0 +1,36 @@
+# SherlockCode Configuration
+provider:
+  default: claude
+  models:
+    claude:
+      api_key: ${CLAUDE_API_KEY}
+      model: claude-3-5-sonnet-20241022
+      max_tokens: 4096
+    openai:
+      api_key: ${OPENAI_API_KEY}
+      model: gpt-4o
+      max_tokens: 4096
+
+review:
+  persona: default
+  max_files: 50
+  max_diff_lines: 5000
+  ignore_patterns:
+    - "*.lock"
+    - "*.min.js"
+    - "vendor/**"
+
+fix:
+  mode: safe
+  auto_validate: true
+  backup: true
+
+learn:
+  enabled: true
+  max_commits: 500
+  auto_learn: true
+
+output:
+  format: terminal
+  color: true
+  show_scores: true

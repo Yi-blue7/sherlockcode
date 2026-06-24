@@ -3,13 +3,12 @@
 import pytest
 
 from sherlockcode.core.fixer import (
-    FixIssue,
-    FixResult,
     _parse_fix_block,
     _validate_python_syntax,
     CONFIDENCE_THRESHOLDS,
     SAFE_CATEGORIES,
 )
+from sherlockcode.core.reviewer import FixIssue, FixResult
 
 
 class TestFixIssue:

@@ -13,6 +13,11 @@ DEFAULT_CONFIG_CONTENT = """# SherlockCode Configuration
 provider:
   default: {default_provider}
   models:
+    deepseek:
+      api_key: ${{DEEPSEEK_API_KEY}}
+      model: deepseek-chat
+      max_tokens: 4096
+      endpoint: https://api.deepseek.com/v1
     claude:
       api_key: ${{CLAUDE_API_KEY}}
       model: claude-3-5-sonnet-20241022

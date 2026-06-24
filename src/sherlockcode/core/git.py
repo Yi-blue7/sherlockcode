@@ -1,8 +1,13 @@
-"""Git operations wrapper for SherlockCode."""
+"""Git operations for SherlockCode."""
+
+from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 
 class GitError(Exception):
@@ -10,100 +15,86 @@ class GitError(Exception):
     pass
 
 
-def _run_git(args: list[str], cwd: Optional[Path] = None) -> str:
-    """Run a git command and return its stdout."""
+def _run_git(args: list[str], cwd: Path | None = None) -> str:
+    """Run a git command and return the output."""
     try:
         result = subprocess.run(
-            ["git", *args],
-            cwd=str(cwd) if cwd else None,
+            ["git"] + args,
+            cwd=cwd,
             capture_output=True,
             text=True,
-            timeout=30,
+            check=True,
         )
-        if result.returncode != 0:
-            raise GitError(result.stderr.strip())
         return result.stdout.strip()
-    except subprocess.TimeoutExpired:
-        raise GitError("Git command timed out")
-    except FileNotFoundError:
-        raise GitError("Git is not installed or not in PATH")
+    except subprocess.CalledProcessError as e:
+        raise GitError(f"Git command failed: {' '.join(args)}\n{e.stderr.strip()}") from e
+    except FileNotFoundError as e:
+        raise GitError(f"Git not found: {e}") from e
 
 
-def is_git_repo(path: Optional[Path] = None) -> bool:
-    """Check if the given path is inside a git repository."""
+def is_git_repo(path: Path | None = None) -> bool:
+    """Check if the given path is a git repository."""
     try:
-        _run_git(["rev-parse", "--is-inside-work-tree"], cwd=path)
+        _run_git(["rev-parse", "--git-dir"], cwd=path)
         return True
     except GitError:
         return False
 
 
-def has_commits(path: Optional[Path] = None) -> bool:
-    """Check if the repository has at least one commit."""
-    try:
-        _run_git(["log", "-1", "--format=%H"], cwd=path)
-        return True
-    except GitError:
-        return False
-
-
-def get_repo_root(path: Optional[Path] = None) -> Path:
+def get_repo_root(path: Path | None = None) -> Path:
     """Get the root directory of the git repository."""
-    output = _run_git(["rev-parse", "--show-toplevel"], cwd=path)
-    return Path(output).resolve()
-
-
-def get_changed_files(path: Optional[Path] = None) -> list[str]:
-    """Get list of files with unstaged or staged changes."""
-    repo_root = get_repo_root(path)
-
-    # If no commits exist, list staged files (added but not committed)
-    if not has_commits(repo_root):
-        try:
-            output = _run_git(["diff", "--name-only", "--cached"], cwd=repo_root)
-            if output:
-                return [f for f in output.split("\n") if f]
-        except GitError:
-            pass
-        # Also check for untracked files
-        try:
-            output = _run_git(["ls-files", "--others", "--exclude-standard"], cwd=repo_root)
-            if not output:
-                return []
-            return [f for f in output.split("\n") if f]
-        except GitError:
-            return []
-
+    if path is None:
+        path = Path.cwd()
     try:
-        output = _run_git(["diff", "--name-only", "HEAD"], cwd=repo_root)
-        if not output:
-            return []
-        return [f for f in output.split("\n") if f]
+        root = _run_git(["rev-parse", "--show-toplevel"], cwd=path)
+        return Path(root)
     except GitError:
-        try:
-            output = _run_git(["diff", "--name-only", "--cached"], cwd=repo_root)
-            if not output:
-                return []
-            return [f for f in output.split("\n") if f]
-        except GitError:
-            return []
+        return path
 
 
-def get_diff(path: Optional[Path] = None, target: Optional[str] = None) -> str:
-    """Get the git diff output.
-
-    Args:
-        path: Working directory (defaults to current).
-        target: Diff target, e.g. 'HEAD~3' or 'main..feature'.
-    """
-    repo_root = get_repo_root(path)
+def get_diff(repo_path: Path, target: str | None = None) -> str:
+    """Get git diff for the given target."""
     args = ["diff"]
     if target:
         args.append(target)
-    return _run_git(args, cwd=repo_root)
+    try:
+        return _run_git(args, cwd=repo_path)
+    except GitError:
+        return ""
 
 
-def get_staged_diff(path: Optional[Path] = None) -> str:
-    """Get staged diff (includes both staged and unstaged)."""
-    repo_root = get_repo_root(path)
-    return _run_git(["diff", "HEAD"], cwd=repo_root)
+def get_changed_files(repo_path: Path) -> list[str]:
+    """Get list of changed files in the repository."""
+    try:
+        output = _run_git(["diff", "--name-only", "HEAD"], cwd=repo_path)
+        if output:
+            return output.split("\n")
+    except GitError:
+        try:
+            output = _run_git(["diff", "--name-only", "--cached"], cwd=repo_path)
+            if output:
+                return output.split("\n")
+        except GitError:
+            pass
+    return []
+
+
+def get_commit_history(repo_path: Path, max_count: int = 100) -> list[dict[str, str]]:
+    """Get commit history as a list of dicts."""
+    args = ["log", f"--max-count={max_count}", "--format=%H|%s|%an|%ad", "--date=iso"]
+    try:
+        output = _run_git(args, cwd=repo_path)
+        commits = []
+        for line in output.split("\n"):
+            if "|" in line:
+                parts = line.split("|", 3)
+                if len(parts) == 4:
+                    commits.append({
+                        "hash": parts[0],
+                        "subject": parts[1],
+                        "author": parts[2],
+                        "date": parts[3],
+                    })
+        return commits
+    except GitError:
+        return []

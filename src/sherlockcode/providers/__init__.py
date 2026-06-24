@@ -33,3 +33,4 @@ def create_provider(name: str, api_key: str, model: str, max_tokens: int = 4096,
 # Auto-register built-in providers
 register("openai", OpenAIProvider)
 register("claude", ClaudeProvider)
+register("deepseek", OpenAIProvider)  # DeepSeek is OpenAI-compatible
